@@ -23,8 +23,11 @@
 #include <cavr/cavr.h>
 #include <Transform.h>
 
-using namespace cavr;
+#include <cavr/gfx/renderer.h>
+#include <cavr/gfx/shapes.h>
 
+using namespace gfx;
+using namespace cavr;
 class World
 {
 	public:
@@ -47,8 +50,8 @@ class World
 
 	private:
 
-		gfx::Mesh <float> m_didge;
-		gfx::Skybox m_skybox;
+		Mesh <float> m_didge;
+		Skybox m_skybox;
 		bool m_play_sound;
 		float m_pitch_offset;
 		cavr::math::vec3f m_sound_pos;

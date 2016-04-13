@@ -58,13 +58,19 @@ void World::update (const float dt)
 
 void World::render (int context_id) 
 {
+	glMatrixMode(GL_PROJECTION);
+	glLoadMatrixf(cavr::gfx::getProjection().v);
+
+
 	glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(1,1,1,1);
 	glMatrixMode (GL_MODELVIEW);
+	//glLoadMatrixf(cavr::gfx::getView().v);
 
 	const input::SixDOF *wand = input::getSixDOF ("wand");
 	const input::SixDOF *head = input::getSixDOF ("head");
 	m_skybox.setPosition (cavr::math::vec3f(head->getPosition ()).v, context_id);
+
 	m_skybox.render (context_id);
 	glPushMatrix ();
 		glMultMatrixf (cavr::math::mat4f(wand->getMatrix ()).v);

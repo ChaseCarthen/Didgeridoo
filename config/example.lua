@@ -15,14 +15,14 @@ fullscreen = false;
 perspective_window = {
   view = {
     eyes = {
-      eye = cavr.sixdof("emulated");
+      eye = cavr.sixdof("vrpn[ShortGlasses[0]]");
       --left_eye = cavr.sixdof("emulated3");
       --right_eye = cavr.sixdof("emulated2");
       --stereo ="mono";
     };
-    lower_left = cavr.sixdof("emulated") * cavr.translate(-1, -1, -1);
-    lower_right = cavr.sixdof("emulated") * cavr.translate(1, -1, -1);
-    upper_left = cavr.sixdof("emulated") * cavr.translate(-1, 1, -1);
+    lower_left = cavr.sixdof("vrpn[ShortGlasses[0]]") * cavr.translate(-1, -1, -1);
+    lower_right = cavr.sixdof("vrpn[ShortGlasses[0]]") * cavr.translate(1, -1, -1);
+    upper_left = cavr.sixdof("vrpn[ShortGlasses[0]]") * cavr.translate(-1, 1, -1);
   };
   fullscreen = false;
 };
@@ -52,7 +52,7 @@ x11_renderer3 = {
   display = ":0.0";
   windows = {
     sw = perspective_window;
-    --sim_window = sim_window;
+    sim_window = sim_window;
   };
 };
 
@@ -78,7 +78,7 @@ vrpn = {
     "WiiMote0@projector.cse.unr.edu";
   };
   sixdofs = {
-    "TallGlasses@tracker.rd.unr.edu:1";
+    "ShortGlasses@tracker.rd.unr.edu:1";
     "WiiMote0@tracker.rd.unr.edu";
     --"WiiMote1@tracker.rd.unr.edu";
   };
