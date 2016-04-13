@@ -1,0 +1,24 @@
+include "../.hydrarc"
+
+define desktop
+{
+	machines
+	{
+		#thisMachine
+		#weasel
+		passiveWeasel
+		#hedgehog
+	}
+	networkMaps
+	{
+		vrpad
+	}
+	inputMaps
+	{
+		keyboardMap
+		vrpnMap
+		wiimoteMap
+		userMap
+	}
+}
+

@@ -1,0 +1,31 @@
+# This is a list of libraries that can be included/linked into projects.
+
+PTHREAD_BASEDIR =
+PTHREAD_DEPENDS = 
+PTHREAD_INCLUDE =
+PTHREAD_LIBDIR  =
+PTHREAD_LIBS    = -lpthread 
+
+PERFTOOLS_BASEDIR =
+PERFTOOLS_DEPENDS = 
+PERFTOOLS_INCLUDE = -I/usr/local/src/google-perftools-1.4/src
+PERFTOOLS_LIBDIR  =
+PERFTOOLS_LIBS    = -lprofiler -ltcmalloc
+
+UNITTEST_BASEDIR =
+UNITTEST_DEPENDS =
+UNITTEST_INCLUDE = -I/usr/include/unittest++/
+UNITTEST_LIBDIR  =
+UNITTEST_LIBS    = -lUnitTest++
+
+DAEDALUS_BASEDIR =
+DAEDALUS_DEPENDS =
+DAEDALUS_INCLUDE = -Isrc/library
+DAEDALUS_LIBDIR  =
+DAEDALUS_LIBS    = lib/libdaedalus.a
+
+GLUT_BASEDIR =
+GLUT_DEPENDS =
+GLUT_INCLUDE = 
+GLUT_LIBDIR  =
+GLUT_LIBS    = -lglut -lGL -lGLU -lGLEW

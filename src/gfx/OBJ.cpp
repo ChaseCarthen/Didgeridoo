@@ -1,0 +1,686 @@
+#include <OBJ.h>
+
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <cmath>
+#include <set>
+#include <sstream>
+
+using namespace std;
+
+template <typename T>
+T convert(const std::string& value)
+{
+	std::stringstream stream;
+	stream << value;
+
+	T result;
+	stream >> result;
+
+	return result;
+}
+
+OBJ::OBJ(const char* filename)
+{
+	read(filename);
+}
+
+OBJ::~OBJ (void)
+{
+	// Clear the internal lists.
+	_vertices.clear ();
+	_texcoords.clear ();
+	_normals.clear ();
+	_vertexIndices.clear ();
+	_texcoordIndices.clear ();
+	_normalIndices.clear ();
+}
+
+void OBJ::write(const char* filename)
+{
+	ofstream fout(filename);
+
+	if (!fout)
+	{
+		cerr << "Error: Could not write to " << filename << endl;
+		exit(1);
+	}
+
+	write(fout);
+	fout.close ();
+}
+
+void OBJ::write(std::ostream& out)
+{
+	// this function exists for verification
+	
+	out << "# " << _vertices.size() << " vertices" << endl
+	    << "# " << _texcoords.size() << " texcoords" << endl
+	    << "# " << _normals.size() << " normals" << endl
+	    << endl
+	    << "# " << _vertexIndices.size() << " indices" << endl
+	    << "# " << _vertexIndices.size() / 3 << " faces" << endl
+	    << endl;
+	
+	for (size_t i = 0; i < _vertices.size(); ++i)
+	{
+		out << "v "
+		    << _vertices[i].x() << ' '
+		    << _vertices[i].y() << ' '
+		    << _vertices[i].z() << endl;
+	}
+	out << endl;
+
+	for (size_t i = 0; i < _texcoords.size(); ++i)
+	{
+		out << "vt "
+		    << _texcoords[i].x() << ' '
+		    << _texcoords[i].y() << endl;
+	}
+	out << endl;
+
+	for (size_t i = 0; i < _normals.size(); ++i)
+	{
+		out << "vn "
+		    << _normals[i].x() << ' '
+		    << _normals[i].y() << ' '
+		    << _normals[i].z() << endl;
+	}
+	out << endl;
+
+	out << "f ";
+	for (size_t i = 0; i < _vertexIndices.size(); ++i)
+	{
+		out << _vertexIndices[i] + 1 << '/'
+		    << _texcoordIndices[i] + 1 << '/'
+		    << _normalIndices[i] + 1;
+
+		if (i % 3 != 2)
+		{
+			out << ' ';
+		}
+		else
+		{
+			out << endl;
+
+			if (i != _vertexIndices.size() - 1)
+			{
+				out << "f ";
+			}
+		}
+	}
+}
+
+void OBJ::smoothNormals()
+{
+	// for each vertex
+		// for each face
+			// if vertex is in face
+				// calculate face normal
+				// store face and normal
+		// average face normals and normalize result
+		// store smooth normal in a std::vector
+		// for each stored face
+			// get vertex in face corresponding to this vertex
+			// set normal to the index of the new smooth normal
+	
+	// there will be a 1:1 relationship between vertices and normals
+	_normals.clear();
+	_normals.resize(_vertices.size());
+
+	// for each vertex...
+	for (size_t i = 0; i < _vertices.size(); ++i)
+	{
+		math::vec3d newNormal;
+
+		// for each face...
+		for (size_t j = 0; j < _vertexIndices.size(); j += 3)
+		{
+			// for each index in the face...
+			for (int k = 0; k < 3; ++k)
+			{
+				// if ith vertex matches one of the three indices
+				if (i == _vertexIndices[j+k])
+				{
+					newNormal += calculateNormal(j);
+
+					// vertices to normals is a 1:1 relationship,
+					// so it's valid to assign a vertex index to
+					// the list of normal indices
+					_normalIndices[j+k] = i;
+				}
+			}
+		}
+
+		newNormal = normalize (newNormal);
+
+		_normals[i] = newNormal;
+	}
+}
+
+unsigned int OBJ::countDuplicateVertices() const
+{
+	unsigned int count = 0;
+	std::vector<math::vec3d> vertices = _vertices;
+
+	for (std::vector<math::vec3d>::iterator i = vertices.begin();
+	     i != vertices.end(); )
+	{
+		for (std::vector<math::vec3d>::iterator j = vertices.begin();
+		     j != vertices.end(); )
+		{
+			//if (*i == *j &&
+			if (checkClose(*i, *j) &&
+			    i != j)
+			{
+				++count;
+				j = vertices.erase(j);
+			}
+			else
+			{
+				++j;
+			}
+		}
+
+		i = vertices.erase(i);
+	}
+
+	return count;
+}
+
+void OBJ::removeDuplicateVertices()
+{
+	// used for tagging vertices for deletion and
+	// indicating which vertex references the index list should
+	// offset due to deleted vertices.
+	vector<int> offsets(_vertices.size());
+	
+	// initialize offsets
+	//
+	for (size_t i = 0; i < offsets.size(); ++i)
+	{
+		offsets[i] = 0;
+	}
+
+	// fix index references to duplicates,
+	// and mark duplicates for deletion
+	//
+	for (size_t i = 0; i < _vertices.size(); ++i)
+	{
+		for (size_t j = i + 1; j < _vertices.size(); ++j)
+		{
+			//if (_vertices[i] == _vertices[j] &&
+			if (checkClose(_vertices[i], _vertices[j]) &&
+			    offsets[j] != -1)
+			{
+				// mark for deletion
+				offsets[j] = -1;
+
+				// for each index
+				for (size_t k = 0; k < _vertexIndices.size(); ++k)
+				{
+					// does this index reference vertex j?
+					if (_vertexIndices[k] == j)
+					{
+						// j is going to be deleted later,
+						// so set the reference to i
+						_vertexIndices[k] = i;
+					}
+				}
+			}
+		}
+	}
+
+	// determine offsets
+	//
+	int current = 0;
+	for (size_t i = 0; i < _vertices.size(); ++i)
+	{
+		// if marked for deletion
+		if (offsets[i] == -1)
+		{
+			// increment the offset by 1 for all following
+			++current;
+		}
+		else
+		{
+			offsets[i] = current;
+		}
+	}
+
+	// offset index references to non-duplicates
+	//
+	for (size_t i = 0; i < _vertexIndices.size(); ++i)
+	{
+		int index = _vertexIndices[i];
+
+		// if [i] refers to a vertex that is not marked
+		if (offsets[index] != -1)
+		{
+			// offset the [i] by the offset corresponding
+			// to the referenced verrtex
+			_vertexIndices[i] -= offsets[index];
+		}
+	}
+
+	// remove duplicates
+	//
+	size_t index = 0;
+	for (iter it = _vertices.begin(); it != _vertices.end(); )
+	{
+		// if ith vertex should be erased
+		if (offsets[index] == -1)
+		{
+			it = _vertices.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+
+		++index;
+	}	
+}
+
+/*struct Extra
+{
+	int index; // to index buffer
+};*/
+
+//typedef map<int, set<int> > PointAdj;
+
+
+void OBJ::generateLineAdjacencyBuffer() const
+{
+	/*
+	PointAdj pointAdj;
+
+	for (size_t i = 0; i < _vertexIndices.size(); ++i)
+	{
+		pointAdj[_vertexIndices[i]] = 
+	}
+	*/
+
+
+#if 0
+	std::set< pair<size_t, size_t> > edges;
+
+	for (size_t i = 0; i < _vertexIndices.size() - 1; ++i)
+	{
+		if (!edges.insert(pair<size_t, size_t>(_vertexIndices[i], _vertexIndices[i+1])).second)
+		{
+			cout << _vertexIndices[i] << endl;
+		}
+		else if (!edges.insert(pair<size_t, size_t>(_vertexIndices[i+1], _vertexIndices[i])).second)
+		{
+			cout << "** " << _vertexIndices[i] << endl;
+		}
+	}
+#endif
+
+#if 0
+	// for each face
+		// for each edge
+			// if edge is not in set
+				// set edge's c
+				// add edge to set
+			// else
+				// set edge's d
+	
+	// for each edge in set
+		// write out to file
+	
+//-------------------------------------------------------------
+	
+	// generate set of edges (w/ adjacency)
+
+	EdgeSet edges;
+
+	// for each face
+	for (size_t i = 0; i < _vertexIndices.size(); i += 3)
+	{
+		// the first two indices into considerEdge() define the edge,
+		// the third index defines the vertex forming the left triangle
+
+		considerEdge(i+0, i+1, i+2, edges); // indices always given in ccw order
+		considerEdge(i+1, i+2, i+0, edges);
+		considerEdge(i+2, i+0, i+1, edges);
+	}
+
+
+	// write file
+	
+	ofstream fout("edges.txt");
+
+	fout << edges.size() << endl
+	     << endl;
+
+	EdgeSet::iterator it = edges.begin();
+	while (it != edges.end())
+	{
+		if (!it->complete) { cout << "oops!" << endl; exit(1); }
+		fout << *it << endl;
+		++it;
+	}
+#endif
+}
+
+const std::vector<math::vec3d>& OBJ::vertices() const
+{
+	return _vertices;
+}
+
+const std::vector<math::vec2d>& OBJ::texcoords() const
+{
+	return _texcoords;
+}
+
+const std::vector<math::vec3d>& OBJ::normals() const
+{
+	return _normals;
+}
+
+const std::vector<unsigned int>& OBJ::vertexIndices() const
+{
+	return _vertexIndices;
+}
+
+const std::vector<unsigned int>& OBJ::texcoordIndices() const
+{
+	return _texcoordIndices;
+}
+
+const std::vector<unsigned int>& OBJ::normalIndices() const
+{
+	return _normalIndices;
+}
+
+void OBJ::read(const char* filename, double scale)
+{
+	ifstream fin(filename);
+	_scale = scale;
+
+	if (!fin)
+	{
+		cout << "Error: Could not read " << filename << endl
+		     << endl;
+
+		//return;
+		exit(1);
+	}
+
+	vector<string> tokens;
+
+	// process the text file line by line
+	while (fin)
+	{
+		string line;
+		getline(fin, line);
+
+		tokens.clear();
+		tokenize(line, tokens);
+
+		process(tokens);
+	}
+}
+
+void OBJ::tokenize(const string& line, vector<string>& tokens) const
+{
+	stringstream stream;
+
+	stream << line;
+
+	while (stream)
+	{
+		string s;
+
+		stream >> s;
+		tokens.push_back(s);
+	}
+}
+
+void OBJ::process(const vector<string>& tokens)
+{
+	if (tokens[0] == "v")
+	{
+		addVertex(tokens);
+	}
+	else if (tokens[0] == "vt")
+	{
+		addTexCoord(tokens);
+	}
+	else if (tokens[0] == "vn")
+	{
+		addNormal(tokens);
+	}
+	else if (tokens[0] == "f")
+	{
+		addFace(tokens);
+	}
+	else if (tokens[0][0] != '#' &&  // unsupported
+	         tokens[0] != "g" &&
+	         tokens[0] != "s" &&
+	         tokens[0] != "usemtl" &&
+	         tokens[0] != "mtllib" &&
+		     tokens[0][0] != 'o' &&
+		     tokens[0][0] != ' ' &&
+		     tokens[0][0] != '\n' &&
+		     tokens[0][0] != '\r' &&
+		     tokens[0][0] != '\0')
+	{
+		/*cout << "Error: This is not a supported obj file." << endl
+		     << endl;
+
+		exit(1);*/
+	}
+}
+
+void OBJ::addVertex(const vector<string>& tokens)
+{
+	math::vec3d v;
+
+	v.x() = convert<double>(tokens[1]) * _scale;
+	v.y() = convert<double>(tokens[2]) * _scale;
+	v.z() = convert<double>(tokens[3]) * _scale;
+
+	_vertices.push_back(v);
+}
+
+void OBJ::addTexCoord(const vector<string>& tokens)
+{
+	math::vec2d v;
+
+	v.x() = convert<double>(tokens[1]);
+	v.y() = convert<double>(tokens[2]);
+
+	_texcoords.push_back(v);
+}
+
+void OBJ::addNormal(const vector<string>& tokens)
+{
+	math::vec3d v;
+
+	v.x() = convert<double>(tokens[1]);
+	v.y() = convert<double>(tokens[2]);
+	v.z() = convert<double>(tokens[3]);
+
+	_normals.push_back(v);
+}
+
+void OBJ::addFace(const vector<string>& tokens)
+{
+	const int size = 100;
+	char buffer[size];
+	unsigned int v, vt, vn;
+
+	// obj formats faces like this:
+	// f v/vt/vn v/vt/vn v/vt/vn
+	// e.g. f 1/1/1 2/2/2 3/3/3
+
+	for (int i = 0; i < 3; ++i)
+	{
+		stringstream stream;
+
+		// put a v/vt/vn triplet into the stream
+		// tokens[0] == "f", thus i + 1 is the ith v/vt/vn triplet
+		stream << tokens[i + 1];
+
+		// read the three indices (v/vt/vn)
+
+		stream.getline(buffer, size, '/');
+		v = convert<unsigned int>(buffer) - 1; // obj numbers indices from 1
+
+		stream.getline(buffer, size, '/');
+		vt = convert<unsigned int>(buffer) - 1;
+
+		stream.getline(buffer, size);
+		vn = convert<unsigned int>(buffer) - 1;
+
+		_vertexIndices.push_back(v);
+		_texcoordIndices.push_back(vt);
+		_normalIndices.push_back(vn);
+	}
+}
+
+math::vec3d OBJ::calculateNormal(unsigned int j)
+{
+	unsigned int p = _vertexIndices[j+0];
+	unsigned int q = _vertexIndices[j+1];
+	unsigned int r = _vertexIndices[j+2];
+
+	math::vec3d a = _vertices[p];
+	math::vec3d b = _vertices[q];
+	math::vec3d c = _vertices[r];
+
+	math::vec3d v = b - a;
+	math::vec3d w = c - a;
+
+	//return cross(v, w);
+	return normalize (cross (v, w));
+}
+
+bool OBJ::checkClose(double a, double b, double maxRelativeError) const
+{
+	if (a == b)
+	{
+		return true;
+	}
+
+	double relativeError;
+
+	if (fabs(b) > fabs(a))
+	{
+		relativeError = fabs((a - b) / b);
+	}
+	else
+	{
+		relativeError = fabs((a - b) / a);
+	}
+
+	if (relativeError <= maxRelativeError)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool OBJ::checkClose(const math::vec3d& a, const math::vec3d& b, double maxRelativeError) const
+{
+	return checkClose(a.x(), b.x(), maxRelativeError) &&
+	       checkClose(a.y(), b.y(), maxRelativeError) &&
+	       checkClose(a.z(), b.z(), maxRelativeError) ;
+}
+
+#if 0
+void OBJ::considerEdge(unsigned int a, unsigned int b, unsigned int c,
+	                   EdgeSet& edges) const
+{
+
+#if 0
+	Edge ab(_vertices[a], _vertices[b]);
+	Edge ba(_vertices[b], _vertices[a]);
+
+	// search for edge ab in the set
+	EdgeSet::iterator it = edges.find(ab);
+
+	if (it == edges.end())
+	{
+		// set edge's c vertex
+		// (defines left adjacent triangle)
+		ab.c = _vertices[c];
+
+		edges.insert(ab);
+	}
+	else if (it != edges.end())
+	{
+		cout << "*** wow!" << endl;
+	
+		// set edge's d vertex
+		// (defines right adjacent triangle)
+		ba.c = it->c;
+		ba.d = _vertices[c];
+		ba.complete = true;
+
+		edges.erase(it);
+		edges.insert(ba);
+	}
+#endif
+
+#if 0
+	Edge ab(_vertices[a], _vertices[b]);
+	Edge ba(_vertices[b], _vertices[a]);
+
+	// search for edge ab in the set
+	EdgeSet::iterator it1 = edges.find(ab);
+	EdgeSet::iterator it2 = edges.find(ba);
+
+	if (it1 == edges.end() && it2 == edges.end())
+	{
+		// set edge's c vertex
+		// (defines left adjacent triangle)
+		ab.c = _vertices[c];
+
+		edges.insert(ab);
+	}
+	else if (it1 != edges.end())
+	{
+		//debug
+		if (!(it2 == edges.end()))
+		{
+			cerr << "Assumption false." << endl;
+			exit(1);
+		}
+
+		//debug
+		if (!(it1->complete == false))
+		{
+			cerr << "Assumption2 false." << endl;
+			exit(1);
+		}
+
+		// set edge's d vertex
+		// (defines right adjacent triangle)
+		ab.c = _vertices[c];
+		ab.d = _vertices[c];
+		ab.complete = true;
+
+		edges.erase(it1);
+		edges.insert(ab);
+	}
+	else
+	{
+		//debug
+		if (!(it2->complete == false))
+		{
+			cerr << "Assumption3 false." << endl;
+			exit(1);
+		}
+
+		it2->d = _vertices[c];
+		it2->complete = true;
+	}
+#endif
+}
+#endif

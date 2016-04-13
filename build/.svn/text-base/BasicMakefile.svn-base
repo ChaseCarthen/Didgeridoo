@@ -1,0 +1,187 @@
+# Set up the optimization and debugging level flags:
+ifndef O
+  O = $(DEFAULTOPTLEVEL)
+endif
+ifndef g
+  g = $(DEFAULTDEBUGLEVEL)
+endif
+
+ifdef RELEASE
+  DEFAULTDEBUGLEVEL = 0
+  DEFAULTOPTLEVEL = 3
+endif
+
+# Set compiler flags for the system environment:
+CSYSFLAGS = -D__$(SYSTEM)__ -D__LITTLE_ENDIAN=$(LITTLE_ENDIAN) -D__BIG_ENDIAN=$(BIG_ENDIAN)
+
+# Recursively expand the list of packages:
+# Well, this is not really recursion... it goes only nine levels, which should be enough ;)
+PACKAGES1 = $(foreach PACKAGENAME,$(PACKAGES),$($(PACKAGENAME)_DEPENDS))
+PACKAGES2 = $(foreach PACKAGENAME,$(PACKAGES1),$($(PACKAGENAME)_DEPENDS))
+PACKAGES3 = $(foreach PACKAGENAME,$(PACKAGES2),$($(PACKAGENAME)_DEPENDS))
+PACKAGES4 = $(foreach PACKAGENAME,$(PACKAGES3),$($(PACKAGENAME)_DEPENDS))
+PACKAGES5 = $(foreach PACKAGENAME,$(PACKAGES4),$($(PACKAGENAME)_DEPENDS))
+PACKAGES6 = $(foreach PACKAGENAME,$(PACKAGES5),$($(PACKAGENAME)_DEPENDS))
+PACKAGES7 = $(foreach PACKAGENAME,$(PACKAGES6),$($(PACKAGENAME)_DEPENDS))
+PACKAGES8 = $(foreach PACKAGENAME,$(PACKAGES7),$($(PACKAGENAME)_DEPENDS))
+PACKAGES9 = $(foreach PACKAGENAME,$(PACKAGES8),$($(PACKAGENAME)_DEPENDS))
+PACKAGES_RECEXPAND = $(PACKAGES) $(PACKAGES1) $(PACKAGES2) $(PACKAGES3) $(PACKAGES4) $(PACKAGES5) $(PACKAGES6) $(PACKAGES7) $(PACKAGES8) $(PACKAGES9)
+
+# Generate the list of include file directories from list of packages:
+CINCLUDEFLAGS = $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_INCLUDE))) $(EXTRACINCLUDEFLAGS)
+LINKDIRFLAGS  = $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBDIR))) $(EXTRALINKDIRFLAGS)
+ifdef SORT_LINKLIBFLAGS
+  LINKLIBFLAGS  = $(sort $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBS))) $(EXTRALINKLIBFLAGS)
+else
+  LINKLIBFLAGS  = $(foreach PACKAGENAME,$(PACKAGES_RECEXPAND),$($(PACKAGENAME)_LIBS)) $(EXTRALINKLIBFLAGS)
+endif
+
+# Target to print compiler/linker flags for the selected packages:
+printpackages:
+	@echo List of packages: $(PACKAGES_RECEXPAND)
+	@echo Source include flags: $(CINCLUDEFLAGS)
+	@echo Library include flags: $(LINKDIRFLAGS)
+	@echo Library list: $(LINKLIBFLAGS)
+
+CCFLAGS = -g$(g) -O$(O) $(CFLAGS) $(CSYSFLAGS) $(CINCLUDEFLAGS)
+
+# Determine the object file directory:
+OBJDIR = $(OBJDIRBASE)/g$(g).O$(O)
+
+# sed command to process a generated dependency file:
+define PROCESS_DEPFILE
+sed -e 's!\([^:]*:\)!$$(OBJDIR)/$*.o:!g' -e 's!/usr/[^ ]*!!g' -e '/^[ ]*\\$$/ d' < $(DEPFILETEMPLATE) > $(DEPDIR)/$*.d
+endef
+
+# Compilation sequence for C sources with dependency generation:
+define COMPILE_C
+@mkdir -p $(DEPDIR)/$(*D)
+@mkdir -p $(OBJDIR)/$(*D)
+$(PLAINCCOMP) -MD -c -o $@ $(CCFLAGS) $<
+@$(PROCESS_DEPFILE)
+@rm -f $(DEPFILETEMPLATE)
+endef
+
+# Compilation sequence for C++ sources with dependency generation:
+define COMPILE_C++
+@mkdir -p $(DEPDIR)/$(*D)
+@mkdir -p $(OBJDIR)/$(*D)
+$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+@$(PROCESS_DEPFILE)
+@rm -f $(DEPFILETEMPLATE)
+endef
+
+# Set default compile command from .c to .o:
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
+	@echo $<
+ifdef VERBOSE
+	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	@echo
+else
+	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+endif
+	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+
+# Set default compile commands from .cc/.cpp to .o:
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
+	@echo $<
+ifdef VERBOSE
+	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	@echo
+else
+	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+endif
+	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+$(OBJDIR)/%.o: %.cc
+	@mkdir -p $(DEPDIR)/$(*D)
+	@mkdir -p $(OBJDIR)/$(*D)
+	@echo $<
+ifdef VERBOSE
+	$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+	@echo
+else
+	@$(CCOMP) -MD -c -o $@ $(CCFLAGS) $<
+endif
+	@$(PROCESS_DEPFILE)
+	@rm -f $(DEPFILETEMPLATE)
+
+# Link sequence to create executables:
+define LINK_EXE
+@mkdir -p $(EXEDIR)/$(*D)
+$(CCOMP) $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+endef
+
+# Set default link command for executables:
+$(EXEDIR)/%:
+	@mkdir -p $(EXEDIR)/$(*D)
+	@echo Linking $@...
+ifdef VERBOSE
+	$(CCOMP) $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+else
+	@$(CCOMP) $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+endif
+	@echo
+
+# Set default link command for dynamic libraries:
+$(LIBDIR)/lib%.so:
+	@mkdir -p $(LIBDIR)/$(*D)
+	@echo Linking $@...
+ifdef VERBOSE
+	$(CCOMP) -shared $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+else
+	@$(CCOMP) -shared $(LINKFLAGS) -o $@ $^ $(LINKDIRFLAGS) $(LINKLIBFLAGS)
+endif
+	@echo
+
+# Sef default link command for static libraries:
+$(LIBDIR)/lib%.a:
+	@mkdir -p $(LIBDIR)/$(*D)
+	@echo Creating $@...
+ifdef VERBOSE
+	ar crs $@ $^
+else
+	@ar crs $@ $^
+endif
+	@echo
+
+# Commands to clean up after the compiler:
+
+.PHONY: clean
+clean: extraclean
+ifdef VERBOSE
+	-find $(DEPDIR) -name "*.d" -exec rm -f \{\} \;
+	-find $(OBJDIR) -name "*.o" -exec rm -f \{\} \;
+	-rm -f $(ALL)
+else
+	@echo Clearing $(DEPDIR)...
+	@-find $(DEPDIR) -name "*.d" -exec rm -f \{\} \;
+	@echo Clearing $(OBJDIR)...
+	@-find $(OBJDIR) -name "*.o" -exec rm -f \{\} \;
+endif
+
+.PHONY: veryclean
+veryclean: extraveryclean
+ifdef VERBOSE
+	-rm -rf $(OBJDIR)
+else
+	@echo Deleting binary files...
+	@-rm -f $(ALL)
+	@echo Deleting $(OBJDIRBASE)...
+	@-rm -rf $(OBJDIRBASE)
+endif
+
+# Get list of dependency files from the current directory and all its subdirectories:
+
+DEPFILES = $(shell find $(DEPDIR) -follow -name "*.d")
+
+# Include all dependency files:
+
+include $(DEPFILES)

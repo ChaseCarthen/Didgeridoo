@@ -1,0 +1,233 @@
+/*
+   Filename : FrameBuffer.h
+   Author   : Cody White 
+   Version  : 1.0
+
+   Purpose  : Encapsulate OpenGL FBO calls. 
+
+   Change List:
+
+      - 10/29/2009  - Created (Cody White)
+*/
+
+#pragma once
+
+#include <GL/glew.h>
+#include "Texture.h"
+#include <iostream>
+
+namespace gfx
+{
+
+/**
+  * Contains the definition for a framebuffer object in OpenGL.
+  */
+class FrameBuffer
+{
+	public:
+
+		/**
+		  * Default constructor.
+		  */
+		FrameBuffer (void)
+		{
+			m_id 	 = 0;
+			m_depth	 = 0;
+			m_width  = 0;
+			m_height = 0;
+		}
+
+		/**
+		  * Destructor.
+		  */
+		~FrameBuffer (void)
+		{
+			if (m_depth)
+			{
+				glDeleteRenderbuffersEXT (1, &m_depth);
+			}
+			
+			if (m_id)
+			{
+				glDeleteFramebuffersEXT (1, &m_id);
+				m_id = 0;
+			}
+
+			if (m_stencil)
+			{
+				glDeleteRenderbuffersEXT (1, &m_stencil);
+			}
+		}
+
+		/**
+		  * Initialize the  framebuffer.
+		  * @param width The width of the framebuffer to allocate.
+		  * @param height The height of the framebuffer to allocate.
+		  * @param format The format of the framebuffer (e.g. GL_RGBA).
+		  * @param internal_format The internal format of the framebuffer.
+		  * @param create_depth Flag to create a depth buffer.
+		  * @param create_stencil Flag to create a stencil buffer.
+		  */
+		bool init (size_t width, size_t height, int format, int internal_format, bool create_depth = false, bool create_stencil = false)
+		{
+			m_width = width;
+			m_height = height;
+
+			// Create the texture for this FBO.
+			gfx::Texture::Params params;
+			params.format		  = format;
+			params.internalFormat = internal_format;
+			params.wrapS 		  = GL_CLAMP_TO_EDGE;
+			params.wrapT 		  = GL_CLAMP_TO_EDGE;
+			params.minFilter 	  = GL_LINEAR;
+			params.magFilter 	  = GL_LINEAR;
+			m_texture.setParams (params);
+			m_texture.blank (width, height, GL_FLOAT);
+			m_texture.bind ();
+		
+			// Create the FBO.
+			glGenFramebuffersEXT (1, &m_id);
+			glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, m_id);
+
+			// Attach the texture to this FBO.
+			glFramebufferTexture2DEXT (GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_texture.id (), 0);
+
+			if (create_depth)
+			{
+				// Create a depth buffer and attach it to this FBO.
+				glGenRenderbuffersEXT (1, &m_depth);
+				glBindRenderbufferEXT (GL_RENDERBUFFER_EXT, m_depth);
+				glRenderbufferStorageEXT (GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, width, height);
+				glFramebufferRenderbufferEXT (GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, m_depth);
+			}
+
+			if (create_stencil)
+			{
+				// Create a stencil buffer and attach it to this FBO.
+				glGenRenderbuffersEXT (1, &m_stencil);
+				glBindRenderbufferEXT (GL_RENDERBUFFER_EXT, m_stencil);
+				glRenderbufferStorageEXT (GL_RENDERBUFFER_EXT, GL_STENCIL_INDEX8_EXT, width, height);
+				glFramebufferRenderbufferEXT (GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, m_stencil);
+			}
+
+			bool success = checkError ();
+			glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, 0);
+			return success;
+		}
+
+		/**
+		  * Bind the frame buffer.
+		  */
+		void bind (void)
+		{
+			glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, m_id);
+			glPushAttrib (GL_ALL_ATTRIB_BITS);
+			glViewport (0, 0, m_width, m_height);
+		}
+
+		/**
+		  * Unbind the framebuffer.
+		  */
+		void unbind (void)
+		{
+			glPopAttrib ();
+			glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, 0);
+		}
+
+		/**
+		  * Bind the internal texture.
+		  */
+		void bindTexture (void)
+		{
+			m_texture.bind ();
+		}
+
+		/**
+		  * Unbind the internal texture.
+		  */
+		void unbindTexture (void)
+		{
+			m_texture.unbind ();
+		}
+
+		/**
+		  * Show error.
+		  */
+		bool checkError (void)
+		{
+			switch (glCheckFramebufferStatusEXT (GL_FRAMEBUFFER_EXT))
+			{
+				case GL_FRAMEBUFFER_COMPLETE_EXT:
+				{
+					return true;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT:
+				{
+					std::cout << "Missing required image/buffer attachment" << std::endl;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
+				{
+					std::cout << "No buffers attached" << std::endl;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
+				{
+					std::cout << "mismatched dimensions" << std::endl;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT:
+				{
+					std::cout << "Colorbuffers have different formats" << std::endl;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT:
+				{
+					std::cout << "Trying to draw to non-attached color buffer" << std::endl;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT:
+				{
+					std::cout << "Trying to read from non-attached read buffer" << std::endl;
+				}
+				break;
+
+				case GL_FRAMEBUFFER_UNSUPPORTED_EXT:
+				{
+					std::cout << "Framebuffers not supported by graphics hardware" << std::endl;
+				}
+				break;
+			}
+
+			return false;
+		}
+
+		/**
+		  * Check fbo validity.
+		  */
+		bool isValid (void)
+		{
+			return m_id != 0;
+		}
+
+	private:
+
+		GLuint m_id;
+		size_t m_width;
+		size_t m_height;
+		
+		gfx::Texture m_texture;
+		GLuint m_depth;
+		GLuint m_stencil;
+};
+
+}
+ 
+

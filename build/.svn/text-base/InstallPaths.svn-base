@@ -1,0 +1,12 @@
+# Installation directories.
+
+# Copy InstallPaths.example over InstallPaths.
+
+# In your projects use -I/home/mahsman/local/include/graphics to tell g++
+# where to look for gfx/, math/, etc.
+
+# Change this one!
+LOCAL_DIR = /home/$(USER)/local
+
+LIB_INSTALL_DIR = $(LOCAL_DIR)/lib
+SRC_INSTALL_DIR = $(LOCAL_DIR)/include/graphics

@@ -1,0 +1,71 @@
+9
+
+dir
+23
+file:///home/local/svn/graphics/src
+file:///home/local/svn/graphics
+
+
+
+2010-02-01T04:31:05.274953Z
+23
+mahsman
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+728e6ba6-830a-4d5f-9793-5db36bd5ce58
+
+gfx
+dir
+
+math
+dir
+
+gfx.h
+file
+
+
+
+
+2010-01-31T00:39:30.000000Z
+d9b085cea4a44def04a025f04569af5e
+2010-01-31T00:26:56.902759Z
+12
+mahsman
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+194
+
+util
+dir
+

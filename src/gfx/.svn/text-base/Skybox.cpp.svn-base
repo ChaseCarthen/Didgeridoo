@@ -1,0 +1,196 @@
+/*
+   Filename : Skybox.h
+   Author   : Joe Mahsman
+   Version  : 1.0
+
+   Purpose  : Implements a easy-to-use interface to create a skybox around the camera.
+
+   Change List:
+
+      - 06/12/2009  - Created (Joe Mahsman)
+*/
+
+#include <util/file.h>
+#include <iostream>
+
+#include "gfx/Skybox.h"
+#include "util/file.h"
+
+using namespace std;
+using util::fileExists;
+
+namespace gfx
+{
+
+// Default constructor
+Skybox::Skybox (void)
+{
+	_context_created = false;
+	_position		 = math::vec3f (0.0f, 0.0f, 0.0f);
+}
+
+// Destructor
+Skybox::~Skybox (void)
+{
+	if (_context_created)
+	{
+		destroyContext ();
+	}
+}
+
+// Initilize the skybox with a directory to load image files from.
+void Skybox::init (const std::string& dir)
+{
+	std::string type;
+
+	// Determine the file type to use.
+	if (filesExist(dir, "jpg"))
+	{
+		type = "jpg";
+	}
+	else if (filesExist(dir, "png"))
+	{
+		type = "png";
+	}
+	else if (filesExist(dir, "tga"))
+	{
+		type = "tga";
+	}
+	else if (filesExist(dir, "bmp"))
+	{
+		type = "bmp";
+	}
+
+	if (type.empty())
+	{
+		cout << "Skybox: Could not find any suitable files in " << dir << "\n";
+		exit(1);
+	}
+
+	std::string prefix = dir + "/";
+	std::string suffix = "." + type;
+
+	gfx::Texture::Params p;
+	p.wrapS = GL_CLAMP; // removes seams
+	p.wrapT = GL_CLAMP;
+	p.envMode = GL_DECAL;
+	//p.minFilter = GL_LINEAR; // experiment with these
+	//p.magFilter = GL_LINEAR;
+	for (int i = 0; i < 6; ++i) _images[i].setParams(p);
+
+	// Load the images.
+	_images[0].load((prefix + "posx" + suffix).c_str());
+	_images[1].load((prefix + "negx" + suffix).c_str());
+	_images[2].load((prefix + "posy" + suffix).c_str());
+	_images[3].load((prefix + "negy" + suffix).c_str());
+	_images[4].load((prefix + "posz" + suffix).c_str());
+	_images[5].load((prefix + "negz" + suffix).c_str());
+}
+
+// Create the new graphics context.
+void Skybox::initContext (void)
+{
+	// TODO: Make gfx::Texture context safe
+	//       (load from disk in init(), create GL ids here)
+	_context_created = true;
+}
+
+// Remove the created graphics context.
+void Skybox::destroyContext (void)
+{
+	// TODO: Clear OpenGL ids here
+	_context_created = false;
+}
+
+// Render the skybox around the camera.
+void Skybox::render (void)
+{
+	// Based on http://sidvind.com/wiki/Skybox_tutorial
+
+	glPushMatrix();
+
+	// Position the box at the camera's current position
+	glTranslatef(_position[0], _position[1], _position[2]);
+
+	glPushAttrib(GL_ENABLE_BIT);
+	glEnable(GL_TEXTURE_2D);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_BLEND);
+
+	// Useful if textures are not working
+	glColor4f(1, 0, 1, 1);
+
+	// The skybox is rendered with respect to the default OpenGL
+	// left-handed coordinate system and camera (down the -z axis)
+
+	// Render the right quad (posx)
+	glBindTexture(GL_TEXTURE_2D, _images[0].id());
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex3f(  0.5f, -0.5f, -0.5f );
+		glTexCoord2f(1, 0); glVertex3f(  0.5f, -0.5f,  0.5f );
+		glTexCoord2f(1, 1); glVertex3f(  0.5f,  0.5f,  0.5f );
+		glTexCoord2f(0, 1); glVertex3f(  0.5f,  0.5f, -0.5f );
+	glEnd();
+
+	// Render the left quad (negx)
+	glBindTexture(GL_TEXTURE_2D, _images[1].id());
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex3f( -0.5f, -0.5f,  0.5f );
+		glTexCoord2f(1, 0); glVertex3f( -0.5f, -0.5f, -0.5f );
+		glTexCoord2f(1, 1); glVertex3f( -0.5f,  0.5f, -0.5f );
+		glTexCoord2f(0, 1); glVertex3f( -0.5f,  0.5f,  0.5f );
+	glEnd();
+	
+	// Render the top quad (posy)
+	glBindTexture(GL_TEXTURE_2D, _images[2].id());
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex3f(  0.5f,  0.5f, -0.5f );
+		glTexCoord2f(1, 0); glVertex3f(  0.5f,  0.5f,  0.5f );
+		glTexCoord2f(1, 1); glVertex3f( -0.5f,  0.5f,  0.5f );
+		glTexCoord2f(0, 1); glVertex3f( -0.5f,  0.5f, -0.5f );
+	glEnd();
+
+	// Render the bottom quad (negy)
+	glBindTexture(GL_TEXTURE_2D, _images[3].id());
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex3f( -0.5f, -0.5f, -0.5f );
+		glTexCoord2f(1, 0); glVertex3f( -0.5f, -0.5f,  0.5f );
+		glTexCoord2f(1, 1); glVertex3f(  0.5f, -0.5f,  0.5f );
+		glTexCoord2f(0, 1); glVertex3f(  0.5f, -0.5f, -0.5f );
+	glEnd();
+
+	// Render the back quad (posz)
+	glBindTexture(GL_TEXTURE_2D, _images[4].id());
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex3f(  0.5f, -0.5f,  0.5f );
+		glTexCoord2f(1, 0); glVertex3f( -0.5f, -0.5f,  0.5f );
+		glTexCoord2f(1, 1); glVertex3f( -0.5f,  0.5f,  0.5f );
+		glTexCoord2f(0, 1); glVertex3f(  0.5f,  0.5f,  0.5f );
+	glEnd();
+
+	// Render the front quad (negz)
+	glBindTexture(GL_TEXTURE_2D, _images[5].id());
+	glBegin(GL_QUADS);
+		glTexCoord2f(0, 0); glVertex3f( -0.5f, -0.5f, -0.5f );
+		glTexCoord2f(1, 0); glVertex3f(  0.5f, -0.5f, -0.5f );
+		glTexCoord2f(1, 1); glVertex3f(  0.5f,  0.5f, -0.5f );
+		glTexCoord2f(0, 1); glVertex3f( -0.5f,  0.5f, -0.5f );
+	glEnd();
+
+	glPopAttrib();
+	glPopMatrix();	
+}
+
+// Determine if files of a given type exist in the passed-in directory.
+bool Skybox::filesExist (const std::string& dir, const std::string& type)
+{
+	return fileExists(dir + "/posx." + type) &&
+	       fileExists(dir + "/negx." + type) &&
+	       fileExists(dir + "/posy." + type) &&
+	       fileExists(dir + "/negy." + type) &&
+	       fileExists(dir + "/posz." + type) &&
+	       fileExists(dir + "/negz." + type) ;
+}
+
+}

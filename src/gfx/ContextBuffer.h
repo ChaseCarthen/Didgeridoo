@@ -1,0 +1,151 @@
+#pragma once
+
+#include <map>
+#include <pthread.h>
+
+namespace gfx
+{
+
+/**
+ * Thread-safe buffer for data associated with multiple rendering contexts.
+ *
+ * Contexts are identified by an integer ID. An integer is used for its
+ * terse simplicity. Although unsigned int would give more than 65,535
+ * possible contexts, this many contexts are never needed (at least not
+ * until ubiquitous VR (tm) circa 2200 AD).
+ *
+ * The template parameter T defines the type of data stored per context ID.
+ * This can be anything from a built-in type (i.e. int, float) to a struct
+ * or class.
+ */
+template <class T>
+class ContextBuffer
+{
+public:
+	ContextBuffer();
+	~ContextBuffer();
+
+	/**
+	 * Return a reference to context data corresponding to the context ID.
+	 * If the ID does not exist, a new context is created and a reference
+	 * to it is returned.
+	 */
+	inline T& operator[](int id);
+
+	/**
+	 * const version of operator[].
+	 * The same functionality is provided, except that a new context is
+	 * NOT created when the search fails.
+	 */
+	inline const T& operator[](int id) const;
+
+	/**
+	  * Get the size of the context buffer.
+	  */
+	inline const size_t size (void);
+
+	/**
+	  * Remove an element from the context buffer.
+	  */
+	inline void remove (int id);
+
+	/**
+	  * Clear the context buffer.
+	  */
+	inline void clear (void);
+
+	// ContextBuffer iterator.
+	typedef typename std::map <int, T>::iterator 	   ContextBufferIterator;
+	typedef typename std::map <int, T>::const_iterator ConstContextBufferIterator;
+
+	/**
+	  * Get the beginning iterator to the data in the context buffer.
+	  */
+	ContextBufferIterator begin (void)
+	{
+		return _data.begin ();
+	}
+
+	/**
+	  * Get the end iterator to the data in the context buffer.
+	  */
+	ContextBufferIterator end (void)
+	{
+		return _data.end ();
+	}
+
+	ConstContextBufferIterator begin (void) const
+	{
+		return _data.begin ();
+	}
+
+	ConstContextBufferIterator end (void) const
+	{
+		return _data.end ();
+	}
+
+private:
+	mutable pthread_mutex_t _mutex;
+	std::map<int, T> _data;
+};
+
+template <class T>
+ContextBuffer<T>::ContextBuffer()
+{
+	pthread_mutex_init(&_mutex, 0);
+}
+
+template <class T>
+ContextBuffer<T>::~ContextBuffer()
+{
+	pthread_mutex_destroy(&_mutex);
+}
+
+template <class T>
+inline T& ContextBuffer<T>::operator[](int id)
+{
+	pthread_mutex_lock(&_mutex);
+	T& result = _data[id];
+	pthread_mutex_unlock(&_mutex);
+
+	return result;
+}
+
+template <class T>
+inline const T& ContextBuffer<T>::operator[](int id) const 
+{
+	pthread_mutex_lock(&_mutex);
+	const T& result = _data.find(id)->second;
+	pthread_mutex_unlock(&_mutex);
+
+	return result;
+}
+
+template <class T>
+inline void ContextBuffer<T>::remove (int id)
+{
+	pthread_mutex_lock (&_mutex);
+	ContextBufferIterator iter = _data.find (id);
+	_data.erase (iter);
+	pthread_mutex_unlock (&_mutex);
+}
+
+
+template <class T>
+inline const size_t ContextBuffer<T>::size (void)
+{
+	size_t tmp = 0;
+	pthread_mutex_lock (&_mutex);
+	tmp = _data.size ();
+	pthread_mutex_unlock (&_mutex);
+
+	return tmp;
+}
+
+template <class T>
+inline void ContextBuffer<T>::clear (void)
+{
+	_data.clear ();
+}
+
+}

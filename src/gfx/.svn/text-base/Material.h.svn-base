@@ -1,0 +1,33 @@
+/*
+   Filename : Material.h
+   Author   : Cody White
+   Version  : 1.0
+
+   Purpose  : Definition of a material for a .obj file. 
+
+   Change List:
+
+      - 12/21/2009  - Created (Cody White)
+*/
+
+#pragma once
+
+#include <string>
+#include "math/Vector.h"
+
+namespace gfx
+{
+
+struct Material
+{
+	std::string name;
+	math::vec3f diffuse;
+	math::vec3f specular;
+	math::vec3f transmissive;
+	float specular_exponent;
+	float alpha;
+	float index_of_refraction;
+};
+
+}
+

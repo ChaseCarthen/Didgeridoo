@@ -1,0 +1,17 @@
+Install
+-------
+
+1. cd build
+2. cp InstallPaths.example InstallPaths
+3. vi InstallPaths
+  - Change LOCAL_DIR to point to the directory to install into.
+  - This should be a standard local directory (with include/ and lib/ subdirectories).
+
+
+Documentation
+-------------
+
+1. sudo apt-get install doxygen graphviz-cairo
+2. cd graphics
+3. make docs
+4. firefox docs/html/index.html
