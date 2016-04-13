@@ -51,11 +51,11 @@ void alinit (void)
 int counter = 0;
 void update (void)
 {
-	/*if (exit_button->delta () == Button::Pressed)
+	if (cavr::input::getButton("exit")->pressed ())
 	{
 		System::shutdown ();
 		return;
-	}*/
+	}
 
 	float dt = cavr::input::InputManager::dt();
 	world.update (dt);
@@ -129,6 +129,7 @@ int main (int argc, char **argv)
 	input_map.button_map["button2"] = "vrpn[WiiMote0[1]]"; // pitch up -- 1
 	input_map.button_map["button3"] = "vrpn[WiiMote0[2]]"; // pitch down -- 2
 	input_map.button_map["button5"] = "vrpn[WiiMote0[4]]"; // play secondary sound?! -- B
+	input_map.button_map["exit"] = "vrpn[WiiMote0[0]]"; // play secondary sound?! -- B
 
 	//analog
 	input_map.analog_map["xAxis"] = "vrpn[WiiMote0[21]]"; // axis on nunchaku
