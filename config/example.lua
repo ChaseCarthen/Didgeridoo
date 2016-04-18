@@ -49,7 +49,7 @@ x11_renderer2 = {
 
 x11_renderer3 = {
   type = "x11gl";
-  display = ":1.0";
+  display = ":2.0";
   windows = {
     sw = perspective_window;
     sim_window = sim_window;

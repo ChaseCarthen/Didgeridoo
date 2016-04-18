@@ -114,8 +114,7 @@ void Skybox::render (int context_id)
 	vec3f& pos = _positions[context_id];
 
 	// Based on http://sidvind.com/wiki/Skybox_tutorial
-	glMatrixMode(GL_MODELVIEW);
-	glLoadMatrixf(cavr::gfx::getView().v);
+
 	glPushMatrix();
 	// Position the box at the camera's current position
 	glTranslatef(pos[0], pos[1], pos[2]);
