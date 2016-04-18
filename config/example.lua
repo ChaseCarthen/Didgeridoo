@@ -29,43 +29,12 @@ perspective_window = {
 
 x11_renderer = {
   type = "x11gl";
-  display = ":1.1";
-  windows = {
-    sw = perspective_window;
-    --sim_window2 = sim_window;
-
-  };
-};
-
-x11_renderer2 = {
-  type = "x11gl";
-  display = ":1.2";
-  windows = {
-    sw = perspective_window;
-    --sim_window2 = sim_window;
-
-  };
-};
-
-x11_renderer3 = {
-  type = "x11gl";
-  display = ":2.0";
+  display = ":0.0"; -- change this parameter if things don't work on your screen
   windows = {
     sw = perspective_window;
     sim_window = sim_window;
   };
 };
-
-
-x11_renderer4 = {
-  type = "x11gl";
-  display = ":0.0";
-  windows = {
-    sw = perspective_window;
-    --sim_window2 = sim_window;
-  };
-};
-
 
 vrpn = {
   type = "vrpn";
@@ -86,39 +55,16 @@ vrpn = {
 
 self = {
   hostname = HOSTNAME;
-  ssh = HOSTNAME;--"chase@" .. HOSTNAME;
+  ssh = HOSTNAME;
   address = HOSTNAME;
-  plugins = {
-    --x11_renderer = x11_renderer;
-    x11_renderer3 = x11_renderer3;
-    vrpn = vrpn;
-  };
-};
-
-
-others = {
-  hostname = "hpcvis4";
-  ssh = "hpcvis4.cse.unr.edu";
-  address = "hpcvis4.cse.unr.edu";--"tcp://" .. "hpcvis7" .. ":8888";
-  plugins = {
-    x11_renderer4 = x11_renderer4;
-    --x11_renderer2 = x11_renderer2;
-  };
-};
-
-others2 = {
-  hostname = "hpcvis2";
-  ssh = "hpcvis2";
-  address = "hpcvis2";--"tcp://" .. "hpcvis7" .. ":8888";
   plugins = {
     x11_renderer = x11_renderer;
     vrpn = vrpn;
   };
 };
 
-
 machines = {
-  self=self;
+  self;
   --self2 = others;
   --self3 = others2;
 };
